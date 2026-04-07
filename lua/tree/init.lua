@@ -1,0 +1,262 @@
+local fs = require("tree.fs")
+local git = require("tree.git")
+local render = require("tree.render")
+local window = require("tree.window")
+local actions = require("tree.actions")
+local watch = require("tree.watch")
+
+local M = {}
+local git_enabled = true
+
+---@type {node: TreeNode, depth: number}[]
+local flat = {}
+
+local function get_node_at_cursor()
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  return flat[cursor[1]]
+end
+
+local function redraw()
+  flat = render.draw()
+  watch.sync(flat)
+end
+
+local function open_file(path)
+  -- focus the previous window before opening
+  local tree_win = window.get_win()
+  local wins = vim.api.nvim_tabpage_list_wins(0)
+  for _, w in ipairs(wins) do
+    if w ~= tree_win and vim.api.nvim_win_get_config(w).relative == "" then
+      vim.api.nvim_set_current_win(w)
+      break
+    end
+  end
+  vim.cmd("edit " .. vim.fn.fnameescape(path))
+end
+
+local function action_open()
+  local entry = get_node_at_cursor()
+  if not entry then return end
+  if entry.node.type == "directory" then
+    fs.toggle_dir(entry.node)
+    redraw()
+  else
+    open_file(entry.node.path)
+  end
+end
+
+local function action_open_split()
+  local entry = get_node_at_cursor()
+  if not entry or entry.node.type == "directory" then return end
+  local tree_win = window.get_win()
+  local wins = vim.api.nvim_tabpage_list_wins(0)
+  for _, w in ipairs(wins) do
+    if w ~= tree_win and vim.api.nvim_win_get_config(w).relative == "" then
+      vim.api.nvim_set_current_win(w)
+      break
+    end
+  end
+  vim.cmd("split " .. vim.fn.fnameescape(entry.node.path))
+end
+
+local function action_open_vsplit()
+  local entry = get_node_at_cursor()
+  if not entry or entry.node.type == "directory" then return end
+  local tree_win = window.get_win()
+  local wins = vim.api.nvim_tabpage_list_wins(0)
+  for _, w in ipairs(wins) do
+    if w ~= tree_win and vim.api.nvim_win_get_config(w).relative == "" then
+      vim.api.nvim_set_current_win(w)
+      break
+    end
+  end
+  vim.cmd("vsplit " .. vim.fn.fnameescape(entry.node.path))
+end
+
+local function action_close_dir()
+  local entry = get_node_at_cursor()
+  if not entry then return end
+  local node = entry.node
+  -- if on an open dir, close it; if on a file or closed dir, close parent
+  if node.type == "directory" and node.open then
+    fs.toggle_dir(node)
+  else
+    -- find parent: walk flat list backwards
+    local cursor = vim.api.nvim_win_get_cursor(0)[1]
+    for i = cursor - 1, 1, -1 do
+      if flat[i].depth < entry.depth and flat[i].node.type == "directory" then
+        vim.api.nvim_win_set_cursor(0, { i, 0 })
+        if flat[i].node.open then
+          fs.toggle_dir(flat[i].node)
+        end
+        break
+      end
+    end
+  end
+  redraw()
+end
+
+local function action_create()
+  local entry = get_node_at_cursor()
+  if not entry then return end
+  local dir = entry.node.type == "directory" and entry.node.path
+    or vim.fn.fnamemodify(entry.node.path, ":h")
+  actions.create(dir)
+end
+
+local function action_delete()
+  local entry = get_node_at_cursor()
+  if not entry then return end
+  actions.delete(entry.node)
+end
+
+local function action_rename()
+  local entry = get_node_at_cursor()
+  if not entry then return end
+  actions.rename(entry.node)
+end
+
+local function action_copy()
+  local entry = get_node_at_cursor()
+  if entry then actions.copy(entry.node) end
+end
+
+local function action_cut()
+  local entry = get_node_at_cursor()
+  if entry then actions.cut(entry.node) end
+end
+
+local function action_paste()
+  local entry = get_node_at_cursor()
+  if not entry then return end
+  local dir = entry.node.type == "directory" and entry.node.path
+    or vim.fn.fnamemodify(entry.node.path, ":h")
+  actions.paste(dir)
+end
+
+local function action_refresh()
+  fs.refresh()
+  git.refresh(fs.get_root().path, redraw)
+end
+
+local function action_cd_into()
+  local entry = get_node_at_cursor()
+  if not entry or entry.node.type ~= "directory" then return end
+  fs.set_root(entry.node.path)
+  git.refresh(entry.node.path, redraw)
+end
+
+local function action_cd_up()
+  local root = fs.get_root()
+  if not root then return end
+  local parent = vim.fn.fnamemodify(root.path, ":h")
+  if parent == root.path then return end
+  fs.set_root(parent)
+  git.refresh(parent, redraw)
+end
+
+local function set_keymaps(buf)
+  local opts = { buffer = buf, noremap = true, silent = true, nowait = true }
+  vim.keymap.set("n", "<CR>",  action_open,       opts)
+  vim.keymap.set("n", "o",     action_open,       opts)
+  vim.keymap.set("n", "l",     action_open,       opts)
+  vim.keymap.set("n", "h",     action_close_dir,  opts)
+  vim.keymap.set("n", "s",     action_open_split, opts)
+  vim.keymap.set("n", "v",     action_open_vsplit,opts)
+  vim.keymap.set("n", "a",     action_create,     opts)
+  vim.keymap.set("n", "d",     action_delete,     opts)
+  vim.keymap.set("n", "r",     action_rename,     opts)
+  vim.keymap.set("n", "y",     action_copy,       opts)
+  vim.keymap.set("n", "x",     action_cut,        opts)
+  vim.keymap.set("n", "p",     action_paste,      opts)
+  vim.keymap.set("n", "R",     action_refresh,    opts)
+  vim.keymap.set("n", "<C-]>", action_cd_into,    opts)
+  vim.keymap.set("n", "-",     action_cd_up,      opts)
+  vim.keymap.set("n", "q",     M.close,           opts)
+end
+
+function M.open(path)
+  path = path or vim.fn.getcwd()
+  fs.set_root(path)
+  window.open()
+  set_keymaps(window.get_buf())
+  watch.setup(function()
+    if not window.is_open() then return end
+    fs.refresh()
+    if git_enabled then
+      git.refresh(fs.get_root().path, redraw)
+    else
+      redraw()
+    end
+  end)
+  if git_enabled then
+    git.refresh(path, redraw)
+  end
+  redraw()
+end
+
+function M.close()
+  watch.stop_all()
+  window.close()
+end
+
+function M.toggle(path)
+  if window.is_open() then
+    M.close()
+  else
+    M.open(path)
+  end
+end
+
+--- Reveal a file in the tree: expand parents and move cursor to it
+---@param filepath string|nil absolute path, defaults to current buffer
+function M.reveal(filepath)
+  if not window.is_open() then return end
+  filepath = filepath or vim.api.nvim_buf_get_name(0)
+  if filepath == "" then return end
+  filepath = vim.fn.fnamemodify(filepath, ":p"):gsub("/$", "")
+  if not fs.expand_to(filepath) then return end
+  flat = render.draw()
+  watch.sync(flat)
+  -- find the line and move cursor
+  for i, entry in ipairs(flat) do
+    if entry.node.path == filepath then
+      local win = window.get_win()
+      if win and vim.api.nvim_win_is_valid(win) then
+        vim.api.nvim_win_set_cursor(win, { i, 0 })
+      end
+      return
+    end
+  end
+end
+
+function M.setup(opts)
+  opts = opts or {}
+  git_enabled = opts.git ~= false
+  window.setup(opts)
+  require("tree.icons").setup(opts)
+
+  -- highlight groups
+  vim.api.nvim_set_hl(0, "TreeNormal",       { link = "Comment",     default = true })
+  vim.api.nvim_set_hl(0, "TreeGitModified",  { link = "WarningMsg",  default = true })
+  vim.api.nvim_set_hl(0, "TreeGitAdded",     { link = "DiffAdd",     default = true })
+  vim.api.nvim_set_hl(0, "TreeGitDeleted",   { link = "DiffDelete",  default = true })
+  vim.api.nvim_set_hl(0, "TreeGitUntracked", { link = "Comment",     default = true })
+  vim.api.nvim_set_hl(0, "TreeGitDefault",   { link = "Normal",      default = true })
+
+  vim.api.nvim_create_user_command("Tree", function(cmd)
+    local arg = cmd.args ~= "" and cmd.args or nil
+    M.toggle(arg)
+  end, { nargs = "?", complete = "dir" })
+
+  -- follow current buffer
+  vim.api.nvim_create_autocmd("BufEnter", {
+    callback = function()
+      if vim.bo.buftype == "" then
+        M.reveal()
+      end
+    end,
+  })
+end
+
+return M

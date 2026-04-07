@@ -1,0 +1,2 @@
+-- Autoload: sets up the :Tree command on startup
+-- User still needs to call require("tree").setup() in their config
