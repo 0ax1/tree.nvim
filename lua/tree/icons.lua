@@ -1,3 +1,6 @@
+--- File and directory icons.
+--- Uses nvim-web-devicons when available, falls back to text arrows.
+--- Set `icons = false` in setup to disable devicons entirely.
 local M = {}
 
 local has_devicons, devicons = pcall(require, "nvim-web-devicons")

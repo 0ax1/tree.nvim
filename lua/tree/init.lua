@@ -1,3 +1,5 @@
+--- tree.nvim — minimal file explorer for Neovim.
+--- Entry point: setup, open/close/toggle, keymaps, and buffer-follow.
 local fs = require("tree.fs")
 local git = require("tree.git")
 local render = require("tree.render")
@@ -8,6 +10,8 @@ local watch = require("tree.watch")
 local M = {}
 local git_enabled = true
 
+--- Flat list of visible nodes, kept in sync with the buffer lines.
+--- Used to map cursor line -> tree node.
 ---@type {node: TreeNode, depth: number}[]
 local flat = {}
 
@@ -21,8 +25,8 @@ local function redraw()
   watch.sync(flat)
 end
 
+--- Open a file in the first non-tree window.
 local function open_file(path)
-  -- focus the previous window before opening
   local tree_win = window.get_win()
   local wins = vim.api.nvim_tabpage_list_wins(0)
   for _, w in ipairs(wins) do
@@ -33,6 +37,8 @@ local function open_file(path)
   end
   vim.cmd("edit " .. vim.fn.fnameescape(path))
 end
+
+-- Keymap actions --
 
 local function action_open()
   local entry = get_node_at_cursor()
@@ -73,15 +79,14 @@ local function action_open_vsplit()
   vim.cmd("vsplit " .. vim.fn.fnameescape(entry.node.path))
 end
 
+--- Close the current dir, or navigate to parent and close it.
 local function action_close_dir()
   local entry = get_node_at_cursor()
   if not entry then return end
   local node = entry.node
-  -- if on an open dir, close it; if on a file or closed dir, close parent
   if node.type == "directory" and node.open then
     fs.toggle_dir(node)
   else
-    -- find parent: walk flat list backwards
     local cursor = vim.api.nvim_win_get_cursor(0)[1]
     for i = cursor - 1, 1, -1 do
       if flat[i].depth < entry.depth and flat[i].node.type == "directory" then
@@ -139,6 +144,7 @@ local function action_refresh()
   git.refresh(fs.get_root().path, redraw)
 end
 
+--- Change root into the directory under cursor.
 local function action_cd_into()
   local entry = get_node_at_cursor()
   if not entry or entry.node.type ~= "directory" then return end
@@ -146,6 +152,7 @@ local function action_cd_into()
   git.refresh(entry.node.path, redraw)
 end
 
+--- Change root up to the parent directory.
 local function action_cd_up()
   local root = fs.get_root()
   if not root then return end
@@ -175,6 +182,7 @@ local function set_keymaps(buf)
   vim.keymap.set("n", "q",     M.close,           opts)
 end
 
+--- Open the tree sidebar rooted at `path` (defaults to cwd).
 function M.open(path)
   path = path or vim.fn.getcwd()
   fs.set_root(path)
@@ -195,6 +203,7 @@ function M.open(path)
   redraw()
 end
 
+--- Close the tree sidebar and stop all filesystem watchers.
 function M.close()
   watch.stop_all()
   window.close()
@@ -208,7 +217,7 @@ function M.toggle(path)
   end
 end
 
---- Reveal a file in the tree: expand parents and move cursor to it
+--- Reveal a file in the tree: expand ancestors and move cursor to it.
 ---@param filepath string|nil absolute path, defaults to current buffer
 function M.reveal(filepath)
   if not window.is_open() then return end
@@ -218,7 +227,6 @@ function M.reveal(filepath)
   if not fs.expand_to(filepath) then return end
   flat = render.draw()
   watch.sync(flat)
-  -- find the line and move cursor
   for i, entry in ipairs(flat) do
     if entry.node.path == filepath then
       local win = window.get_win()
@@ -230,13 +238,14 @@ function M.reveal(filepath)
   end
 end
 
+--- Setup tree.nvim.
+---@param opts? { width?: number, icons?: boolean, git?: boolean }
 function M.setup(opts)
   opts = opts or {}
   git_enabled = opts.git ~= false
   window.setup(opts)
   require("tree.icons").setup(opts)
 
-  -- highlight groups
   vim.api.nvim_set_hl(0, "TreeNormal",       { link = "Comment",     default = true })
   vim.api.nvim_set_hl(0, "TreeGitModified",  { link = "WarningMsg",  default = true })
   vim.api.nvim_set_hl(0, "TreeGitAdded",     { link = "DiffAdd",     default = true })
@@ -249,7 +258,7 @@ function M.setup(opts)
     M.toggle(arg)
   end, { nargs = "?", complete = "dir" })
 
-  -- follow current buffer
+  -- follow current buffer: reveal the active file in the tree
   vim.api.nvim_create_autocmd("BufEnter", {
     callback = function()
       if vim.bo.buftype == "" then

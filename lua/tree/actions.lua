@@ -1,3 +1,5 @@
+--- File operations: create, delete, rename, copy/cut/paste.
+--- All mutations refresh the tree and git status afterwards.
 local fs = require("tree.fs")
 
 local M = {}
@@ -9,6 +11,8 @@ local function refresh_tree()
   end)
 end
 
+--- Prompt to create a new file or directory under `parent_path`.
+--- Append `/` to the name to create a directory.
 function M.create(parent_path)
   vim.ui.input({ prompt = "New file/dir (end with / for dir): " }, function(name)
     if not name or name == "" then return end
@@ -25,6 +29,7 @@ function M.create(parent_path)
   end)
 end
 
+--- Prompt to delete a node (with confirmation).
 function M.delete(node)
   if node.path == fs.get_root().path then return end
   vim.ui.input({ prompt = "Delete " .. node.name .. "? (y/N): " }, function(ans)
@@ -38,6 +43,7 @@ function M.delete(node)
   end)
 end
 
+--- Prompt to rename a node.
 function M.rename(node)
   if node.path == fs.get_root().path then return end
   vim.ui.input({ prompt = "Rename: ", default = node.name }, function(name)
@@ -51,20 +57,23 @@ end
 
 ---@type TreeNode|nil
 local clipboard = nil
-local clip_op = nil -- "copy" | "cut"
+local clip_op = nil ---@type "copy"|"cut"|nil
 
+--- Yank a node for later paste.
 function M.copy(node)
   clipboard = node
   clip_op = "copy"
   vim.notify("Copied: " .. node.name)
 end
 
+--- Cut a node for later paste (moves on paste).
 function M.cut(node)
   clipboard = node
   clip_op = "cut"
   vim.notify("Cut: " .. node.name)
 end
 
+--- Paste the clipboard into `dest_dir`.
 function M.paste(dest_dir)
   if not clipboard then
     vim.notify("Nothing in clipboard", vim.log.levels.WARN)

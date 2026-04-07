@@ -1,15 +1,18 @@
+--- Filesystem operations: scan directories, build/refresh the node tree.
+--- The tree is a recursive structure of TreeNode tables rooted at a single directory.
 local M = {}
 
 ---@class TreeNode
----@field name string
----@field path string
+---@field name string display name (basename)
+---@field path string absolute path
 ---@field type "file"|"directory"
----@field open boolean
----@field children TreeNode[]|nil
+---@field open boolean whether a directory is expanded
+---@field children TreeNode[]|nil populated when open
 
 ---@type TreeNode|nil
 local root = nil
 
+--- Read a directory and return sorted child nodes (dirs first, then case-insensitive alpha).
 local function scandir(path)
   local handle = vim.uv.fs_scandir(path)
   if not handle then return {} end
@@ -34,6 +37,7 @@ local function scandir(path)
   return entries
 end
 
+--- Set a new root directory for the tree.
 function M.set_root(path)
   path = vim.fn.fnamemodify(path, ":p"):gsub("/$", "")
   root = {
@@ -50,6 +54,7 @@ function M.get_root()
   return root
 end
 
+--- Toggle a directory node open/closed. Opening rescans from disk.
 function M.toggle_dir(node)
   if node.type ~= "directory" then return end
   if node.open then
@@ -61,6 +66,7 @@ function M.toggle_dir(node)
   end
 end
 
+--- Refresh an open directory node, preserving the open/closed state of children.
 function M.refresh_node(node)
   if node.type ~= "directory" or not node.open then return end
   local old = {}
@@ -80,25 +86,24 @@ function M.refresh_node(node)
   node.children = new_children
 end
 
+--- Refresh the entire tree from the root, preserving expanded state.
 function M.refresh()
   if root then
     M.refresh_node(root)
   end
 end
 
---- Expand directories along a path so the target file is visible
+--- Expand all ancestor directories so that `target` becomes visible.
 ---@param target string absolute path to reveal
 ---@return boolean true if the path was found within the tree
 function M.expand_to(target)
   if not root then return false end
-  -- target must be under root
   if target:sub(1, #root.path) ~= root.path then return false end
 
   local function walk(node)
     if node.path == target then return true end
     if node.type ~= "directory" then return false end
     if target:sub(1, #node.path + 1) ~= node.path .. "/" then return false end
-    -- this dir is an ancestor — ensure it's open
     if not node.open then
       node.open = true
       node.children = scandir(node.path)
@@ -114,7 +119,7 @@ function M.expand_to(target)
   return walk(root)
 end
 
---- Flatten tree into ordered list of {node, depth} pairs
+--- Flatten the tree into an ordered list for rendering and cursor mapping.
 ---@return {node: TreeNode, depth: number}[]
 function M.flatten()
   local result = {}

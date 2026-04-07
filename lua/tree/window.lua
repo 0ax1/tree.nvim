@@ -1,3 +1,5 @@
+--- Manages the tree sidebar window and its dedicated buffer.
+--- One buffer, one window — no tab sync, no floating mode, no hacks.
 local M = {}
 
 local bufnr = nil
@@ -8,6 +10,7 @@ function M.setup(opts)
   width = opts.width or 30
 end
 
+--- Get or create the tree buffer. Reuses the existing one if still valid.
 function M.get_buf()
   if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
     return bufnr
@@ -29,6 +32,7 @@ function M.get_win()
   return winnr
 end
 
+--- Open the sidebar. If already open, just focus it.
 function M.open()
   if M.is_open() then
     vim.api.nvim_set_current_win(winnr)

@@ -1,36 +1,41 @@
+--- Async git status integration.
+--- Runs `git status --porcelain -u` in the background via vim.system
+--- and builds a path -> status lookup table. Status is propagated up
+--- to parent directories so folders show their children's state.
 local M = {}
 
----@type table<string, string> path -> status char
+---@type table<string, string> absolute path -> status character
 local status_map = {}
 local git_root = nil
 
 local status_icons = {
-  M = "~", -- modified
-  A = "+", -- added
-  D = "-", -- deleted
-  R = "r", -- renamed
-  C = "c", -- copied
-  U = "u", -- unmerged
-  ["?"] = "?", -- untracked
-  ["!"] = "!", -- ignored
+  M = "~",
+  A = "+",
+  D = "-",
+  R = "r",
+  C = "c",
+  U = "u",
+  ["?"] = "?",
+  ["!"] = "!",
 }
 
 function M.icon(st)
   return status_icons[st] or st
 end
 
+--- Parse `git status --porcelain` output into a path -> status map.
+--- Propagates status up to parent directories.
 local function parse_porcelain(lines, root)
   local map = {}
   for _, line in ipairs(lines) do
     if #line >= 4 then
       local x, y = line:sub(1, 1), line:sub(2, 2)
       local file = line:sub(4)
-      -- strip trailing / and quotes
       file = file:gsub('^"', ""):gsub('"$', ""):gsub("/$", "")
       local abs = root .. "/" .. file
+      -- prefer working-tree status (y) over index status (x)
       local st = (y ~= " " and y ~= "?") and y or x
       map[abs] = st
-      -- propagate status up to parent dirs
       local dir = vim.fn.fnamemodify(abs, ":h")
       while #dir > #root do
         if not map[dir] then
@@ -43,8 +48,8 @@ local function parse_porcelain(lines, root)
   return map
 end
 
+--- Refresh git status asynchronously. Calls `callback` on the main thread when done.
 function M.refresh(path, callback)
-  -- find git root
   vim.system(
     { "git", "-C", path, "rev-parse", "--show-toplevel" },
     { text = true },
@@ -73,6 +78,7 @@ function M.refresh(path, callback)
   )
 end
 
+--- Look up the git status for an absolute path.
 function M.get(path)
   return status_map[path]
 end

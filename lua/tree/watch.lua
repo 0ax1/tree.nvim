@@ -1,3 +1,6 @@
+--- Filesystem watcher using libuv fs_event.
+--- One watcher per expanded directory, synced after each redraw.
+--- Changes are debounced (200ms) to avoid redundant refreshes.
 local M = {}
 
 ---@type table<string, uv_fs_event_t>
@@ -42,7 +45,8 @@ local function stop_watcher(path)
   end
 end
 
---- Sync watchers to match currently open directories
+--- Update watchers to match the set of currently expanded directories.
+--- Starts new watchers and stops stale ones.
 ---@param flat {node: TreeNode, depth: number}[]
 function M.sync(flat)
   local open_dirs = {}
@@ -51,25 +55,25 @@ function M.sync(flat)
       open_dirs[entry.node.path] = true
     end
   end
-  -- stop watchers for dirs that are no longer open
   for path in pairs(watchers) do
     if not open_dirs[path] then
       stop_watcher(path)
     end
   end
-  -- start watchers for newly opened dirs
   for path in pairs(open_dirs) do
     start_watcher(path)
   end
 end
 
+--- Stop and close all active watchers.
 function M.stop_all()
   for path in pairs(watchers) do
     stop_watcher(path)
   end
 end
 
----@param callback function called (debounced) when any watched dir changes
+--- Register the callback invoked (debounced) when any watched directory changes.
+---@param callback function
 function M.setup(callback)
   on_change = callback
 end
