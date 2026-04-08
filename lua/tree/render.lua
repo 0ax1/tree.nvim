@@ -15,7 +15,7 @@ function M.draw()
   for i, entry in ipairs(flat) do
     local node = entry.node
     local depth = entry.depth
-    local indent = string.rep("  ", depth)
+    local indent = " " .. string.rep("  ", depth)
 
     if node.type == "directory" then
       lines[i] = indent .. icons.for_dir(node.open) .. " " .. node.name
