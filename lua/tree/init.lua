@@ -23,16 +23,27 @@ local function redraw()
   watch.sync(flat)
 end
 
---- Open a file in the first non-tree window.
-local function open_file(path)
+--- Find the best non-tree window to open a file in (prefer last active).
+local function find_target_win()
   local tree_win = window.get_win()
-  local wins = vim.api.nvim_tabpage_list_wins(0)
-  for _, w in ipairs(wins) do
+  -- Try the alternate (previously focused) window first.
+  local alt = vim.fn.win_getid(vim.fn.winnr("#"))
+  if alt ~= 0 and alt ~= tree_win and vim.api.nvim_win_is_valid(alt)
+    and vim.api.nvim_win_get_config(alt).relative == "" then
+    return alt
+  end
+  -- Fallback: first regular non-tree window.
+  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if w ~= tree_win and vim.api.nvim_win_get_config(w).relative == "" then
-      vim.api.nvim_set_current_win(w)
-      break
+      return w
     end
   end
+end
+
+--- Open a file in the previous last-active window.
+local function open_file(path)
+  local win = find_target_win()
+  if win then vim.api.nvim_set_current_win(win) end
   vim.cmd("edit " .. vim.fn.fnameescape(path))
 end
 
@@ -52,28 +63,16 @@ end
 local function action_open_split()
   local entry = get_node_at_cursor()
   if not entry or entry.node.type == "directory" then return end
-  local tree_win = window.get_win()
-  local wins = vim.api.nvim_tabpage_list_wins(0)
-  for _, w in ipairs(wins) do
-    if w ~= tree_win and vim.api.nvim_win_get_config(w).relative == "" then
-      vim.api.nvim_set_current_win(w)
-      break
-    end
-  end
+  local win = find_target_win()
+  if win then vim.api.nvim_set_current_win(win) end
   vim.cmd("split " .. vim.fn.fnameescape(entry.node.path))
 end
 
 local function action_open_vsplit()
   local entry = get_node_at_cursor()
   if not entry or entry.node.type == "directory" then return end
-  local tree_win = window.get_win()
-  local wins = vim.api.nvim_tabpage_list_wins(0)
-  for _, w in ipairs(wins) do
-    if w ~= tree_win and vim.api.nvim_win_get_config(w).relative == "" then
-      vim.api.nvim_set_current_win(w)
-      break
-    end
-  end
+  local win = find_target_win()
+  if win then vim.api.nvim_set_current_win(win) end
   vim.cmd("vsplit " .. vim.fn.fnameescape(entry.node.path))
 end
 
