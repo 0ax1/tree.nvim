@@ -1,14 +1,12 @@
 --- tree.nvim — minimal file explorer for Neovim.
 --- Entry point: setup, open/close/toggle, keymaps, and buffer-follow.
 local fs = require("tree.fs")
-local git = require("tree.git")
 local render = require("tree.render")
 local window = require("tree.window")
 local actions = require("tree.actions")
 local watch = require("tree.watch")
 
 local M = {}
-local git_enabled = true
 
 --- Flat list of visible nodes, kept in sync with the buffer lines.
 --- Used to map cursor line -> tree node.
@@ -141,7 +139,7 @@ end
 
 local function action_refresh()
   fs.refresh()
-  git.refresh(fs.get_root().path, redraw)
+  redraw()
 end
 
 --- Change root into the directory under cursor.
@@ -149,7 +147,7 @@ local function action_cd_into()
   local entry = get_node_at_cursor()
   if not entry or entry.node.type ~= "directory" then return end
   fs.set_root(entry.node.path)
-  git.refresh(entry.node.path, redraw)
+  redraw()
 end
 
 --- Change root up to the parent directory.
@@ -159,7 +157,7 @@ local function action_cd_up()
   local parent = vim.fn.fnamemodify(root.path, ":h")
   if parent == root.path then return end
   fs.set_root(parent)
-  git.refresh(parent, redraw)
+  redraw()
 end
 
 local function set_keymaps(buf)
@@ -191,15 +189,8 @@ function M.open(path)
   watch.setup(function()
     if not window.is_open() then return end
     fs.refresh()
-    if git_enabled then
-      git.refresh(fs.get_root().path, redraw)
-    else
-      redraw()
-    end
+    redraw()
   end)
-  if git_enabled then
-    git.refresh(path, redraw)
-  end
   redraw()
 end
 
@@ -239,19 +230,13 @@ function M.reveal(filepath)
 end
 
 --- Setup tree.nvim.
----@param opts? { width?: number, icons?: boolean, git?: boolean }
+---@param opts? { width?: number, icons?: boolean }
 function M.setup(opts)
   opts = opts or {}
-  git_enabled = opts.git ~= false
   window.setup(opts)
   require("tree.icons").setup(opts)
 
-  vim.api.nvim_set_hl(0, "TreeNormal",       { link = "Comment",     default = true })
-  vim.api.nvim_set_hl(0, "TreeGitModified",  { link = "WarningMsg",  default = true })
-  vim.api.nvim_set_hl(0, "TreeGitAdded",     { link = "DiffAdd",     default = true })
-  vim.api.nvim_set_hl(0, "TreeGitDeleted",   { link = "DiffDelete",  default = true })
-  vim.api.nvim_set_hl(0, "TreeGitUntracked", { link = "Comment",     default = true })
-  vim.api.nvim_set_hl(0, "TreeGitDefault",   { link = "Normal",      default = true })
+  vim.api.nvim_set_hl(0, "TreeNormal", { link = "Comment", default = true })
 
   vim.api.nvim_create_user_command("Tree", function(cmd)
     local arg = cmd.args ~= "" and cmd.args or nil

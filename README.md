@@ -15,7 +15,6 @@ Minimal file explorer for Neovim. ~800 lines of Lua.
 require("tree").setup({
   width = 30,     -- sidebar width (default 30)
   icons = false,  -- disable devicons, use text arrows (default true)
-  git = false,    -- disable git status markers (default true)
 })
 
 vim.keymap.set("n", "<c-n>", "<cmd>Tree<cr>")
@@ -40,7 +39,6 @@ vim.keymap.set("n", "<c-n>", "<cmd>Tree<cr>")
 
 ## Features
 
-- Async git status via `git status --porcelain`
 - Filesystem watching via libuv (debounced, per expanded directory)
 - Auto-reveal: tree follows the current buffer
 - Optional nvim-web-devicons support
@@ -52,7 +50,3 @@ All highlight groups can be overridden:
 | Group | Default link | Used for |
 |-------|-------------|----------|
 | `TreeNormal` | `Comment` | All tree text |
-| `TreeGitModified` | `WarningMsg` | Modified files |
-| `TreeGitAdded` | `DiffAdd` | Added files |
-| `TreeGitDeleted` | `DiffDelete` | Deleted files |
-| `TreeGitUntracked` | `Comment` | Untracked files |
