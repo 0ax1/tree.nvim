@@ -200,8 +200,12 @@ end
 
 --- Close the tree sidebar and stop all filesystem watchers.
 function M.close()
+  local win = find_target_win()
   watch.stop_all()
   window.close()
+  if win and vim.api.nvim_win_is_valid(win) then
+    vim.api.nvim_set_current_win(win)
+  end
 end
 
 function M.toggle(path)
