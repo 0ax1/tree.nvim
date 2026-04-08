@@ -40,10 +40,15 @@ local function find_target_win()
   end
 end
 
+--- Focus a window without triggering BufEnter autocmds.
+local function focus_win(win)
+  vim.cmd("noautocmd call win_gotoid(" .. win .. ")")
+end
+
 --- Open a file in the previous last-active window.
 local function open_file(path)
   local win = find_target_win()
-  if win then vim.api.nvim_set_current_win(win) end
+  if win then focus_win(win) end
   vim.cmd("edit " .. vim.fn.fnameescape(path))
 end
 
@@ -64,7 +69,7 @@ local function action_open_split()
   local entry = get_node_at_cursor()
   if not entry or entry.node.type == "directory" then return end
   local win = find_target_win()
-  if win then vim.api.nvim_set_current_win(win) end
+  if win then focus_win(win) end
   vim.cmd("split " .. vim.fn.fnameescape(entry.node.path))
 end
 
@@ -72,7 +77,7 @@ local function action_open_vsplit()
   local entry = get_node_at_cursor()
   if not entry or entry.node.type == "directory" then return end
   local win = find_target_win()
-  if win then vim.api.nvim_set_current_win(win) end
+  if win then focus_win(win) end
   vim.cmd("vsplit " .. vim.fn.fnameescape(entry.node.path))
 end
 
