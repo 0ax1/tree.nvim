@@ -13,8 +13,8 @@ Minimal file explorer for Neovim. ~800 lines of Lua.
 
 ```lua
 require("tree").setup({
-  width = 30,     -- sidebar width (default 30)
-  icons = false,  -- disable devicons, use text arrows (default true)
+  width = 30,                -- sidebar width (default 30)
+  arrows = { open = "▾", closed = "▸" },  -- directory indicators
 })
 
 vim.keymap.set("n", "<c-n>", "<cmd>Tree<cr>")
@@ -41,7 +41,7 @@ vim.keymap.set("n", "<c-n>", "<cmd>Tree<cr>")
 
 - Filesystem watching via libuv (debounced, per expanded directory)
 - Auto-reveal: tree follows the current buffer
-- Optional nvim-web-devicons support
+- Configurable directory arrows
 
 ## Highlights
 

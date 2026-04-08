@@ -1,34 +1,21 @@
---- File and directory icons.
---- Uses nvim-web-devicons when available, falls back to text arrows.
---- Set `icons = false` in setup to disable devicons entirely.
+--- Directory arrow indicators.
+--- Configurable via `arrows = { open = "▾", closed = "▸" }` in setup.
 local M = {}
 
-local has_devicons, devicons = pcall(require, "nvim-web-devicons")
-local enabled = true
-
-local dir_icons = {
-  open = "",
-  closed = "",
+local arrows = {
+  open = "▾",
+  closed = "▸",
 }
 
 function M.setup(opts)
-  if opts.icons == false then
-    enabled = false
+  if opts.arrows then
+    arrows.open = opts.arrows.open or arrows.open
+    arrows.closed = opts.arrows.closed or arrows.closed
   end
-end
-
-function M.for_file(name)
-  if not enabled then return "", nil end
-  if has_devicons then
-    local icon, hl = devicons.get_icon(name, nil, { default = true })
-    return icon or "", hl
-  end
-  return "", nil
 end
 
 function M.for_dir(is_open)
-  if not enabled then return is_open and "▾" or "▸", nil end
-  return is_open and dir_icons.open or dir_icons.closed, "Directory"
+  return is_open and arrows.open or arrows.closed
 end
 
 return M

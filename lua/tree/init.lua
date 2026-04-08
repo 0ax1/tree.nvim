@@ -230,7 +230,7 @@ function M.reveal(filepath)
 end
 
 --- Setup tree.nvim.
----@param opts? { width?: number, icons?: boolean }
+---@param opts? { width?: number, arrows?: { open?: string, closed?: string } }
 function M.setup(opts)
   opts = opts or {}
   window.setup(opts)
