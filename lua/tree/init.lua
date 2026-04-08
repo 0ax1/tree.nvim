@@ -196,6 +196,7 @@ function M.open(path)
     redraw()
   end)
   redraw()
+  M.reveal()
 end
 
 --- Close the tree sidebar and stop all filesystem watchers.
@@ -255,7 +256,7 @@ function M.setup(opts)
   vim.api.nvim_create_autocmd("BufEnter", {
     callback = function()
       if vim.bo.buftype == "" then
-        M.reveal()
+        vim.schedule(function() M.reveal() end)
       end
     end,
   })
