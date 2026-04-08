@@ -186,6 +186,7 @@ end
 
 --- Open the tree sidebar rooted at `path` (defaults to cwd).
 function M.open(path)
+  local current_file = vim.api.nvim_buf_get_name(0)
   path = path or vim.fn.getcwd()
   fs.set_root(path)
   window.open()
@@ -196,7 +197,7 @@ function M.open(path)
     redraw()
   end)
   redraw()
-  M.reveal()
+  M.reveal(current_file)
 end
 
 --- Close the tree sidebar and stop all filesystem watchers.
